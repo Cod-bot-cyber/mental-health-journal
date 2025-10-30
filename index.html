@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mental Health Journal</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <h2 class="logo">🧠 Daily Micro-Journal</h2>
+    <button id="logout-btn" class="logout-btn">Logout</button>
+  </nav>
+
+  <main class="container">
+
+    <section class="journal-section">
+      <h2>✨ Add Your Daily Entry</h2>
+
+      <form id="journalForm" class="journal-form">
+        <label for="mood">Your Mood:</label>
+        <select id="mood" required>
+          <option value="">-- Select Mood --</option>
+          <option>Happy 😊</option>
+          <option>Neutral 😐</option>
+          <option>Sad 😢</option>
+          <option>Stressed 😫</option>
+          <option>Excited 🤩</option>
+        </select>
+
+        <label for="gratitude">Gratitude (What made you feel good today?):</label>
+        <textarea id="gratitude" rows="3" required></textarea>
+
+        <label for="stress_level">Stress Level (0 - 10):</label>
+        <input type="range" id="stress_level" min="0" max="10" value="5" oninput="stressValue.textContent=this.value" />
+        <p>Current: <span id="stressValue">5</span></p>
+
+        <button type="submit" class="btn">Save Entry</button>
+      </form>
+    </section>
+
+
+    <section class="recent-section">
+      <h2>🕓 Recent Entries</h2>
+      <ul id="entriesList" class="entries-list">
+        <li>Loading your recent entries...</li>
+      </ul>
+    </section>
+
+    <section class="chart-section">
+      <h2>📊 Your Stress Level (Last 7 Days)</h2>
+      <canvas id="stressChart" width="400" height="200"></canvas>
+    </section>
+
+   
+    <section class="feedback-section">
+      <h2>💬 Give Feedback</h2>
+      <form id="feedbackForm" class="feedback-form">
+        <textarea id="feedback_text" rows="3" placeholder="Write your feedback here..." required></textarea>
+
+        <label for="rating">Rate your experience:</label>
+        <select id="rating" required>
+          <option value="">--Select--</option>
+          <option value="1">1 - Poor</option>
+          <option value="2">2</option>
+          <option value="3">3 - Average</option>
+          <option value="4">4</option>
+          <option value="5">5 - Excellent</option>
+        </select>
+
+        <button type="submit" class="btn feedback-btn">Submit Feedback</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+   
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      window.location.href = "/logout";
+    });
+
+
+    const form = document.getElementById("journalForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        mood: document.getElementById("mood").value,
+        gratitude: document.getElementById("gratitude").value,
+        stress_level: document.getElementById("stress_level").value
+      };
+
+      const res = await fetch("/add-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      const msg = await res.text();
+      alert(msg);
+      form.reset();
+      loadEntries();
+      loadChart();
+    });
+
+
+    async function loadEntries() {
+      const res = await fetch("/entries");
+      const data = await res.json();
+      const list = document.getElementById("entriesList");
+      list.innerHTML = "";
+
+      if (data.length === 0) {
+        list.innerHTML = "<li>No entries yet!</li>";
+        return;
+      }
+
+      data.forEach(entry => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${entry.mood}</strong> — Stress: ${entry.stress_level}/10<br>
+                        <small>${entry.entry_date}</small><br>
+                        <em>${entry.gratitude}</em>`;
+        list.appendChild(li);
+      });
+    }
+
+
+    async function loadChart() {
+      const res = await fetch("/entries");
+      const data = await res.json();
+      const ctx = document.getElementById("stressChart").getContext("2d");
+
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: data.map(e => new Date(e.entry_date).toLocaleDateString()),
+          datasets: [{
+            label: "Stress Level",
+            data: data.map(e => e.stress_level),
+            borderColor: "#4f46e5",
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true, max: 10 } }
+        }
+      });
+    }
+
+    document.getElementById("feedbackForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const feedback = {
+        feedback_text: document.getElementById("feedback_text").value,
+        rating: document.getElementById("rating").value
+      };
+
+      const res = await fetch("/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(feedback)
+      });
+
+      alert(await res.text());
+      e.target.reset();
+    });
+
+    loadEntries();
+    loadChart();
+  </script>
+</body>
+</html>
